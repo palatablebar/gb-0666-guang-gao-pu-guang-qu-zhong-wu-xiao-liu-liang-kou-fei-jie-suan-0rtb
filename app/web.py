@@ -3,8 +3,10 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.config import MODULES,TITLE,RULE_VERSION
 from app.modules.m7_batches.service import run
+from app.reasons import BASIS_LABELS
 from app.store import fetch
 router=APIRouter();templates=Jinja2Templates(directory="app/templates")
+templates.env.globals["reason"]=lambda code:BASIS_LABELS.get(code,code)
 @router.get("/")
 def home():return RedirectResponse("/model")
 def page(request,slug,run_id):

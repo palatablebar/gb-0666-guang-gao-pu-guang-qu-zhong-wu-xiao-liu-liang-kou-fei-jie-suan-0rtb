@@ -2,7 +2,7 @@ import csv,io,json
 from app.errors import reject
 def validate(options):
     if set(options)-{"sample","text","params"}:reject("PARAMETER","存在未知运行参数")
-    if options.get("sample","dirty") not in {"dirty","clean","gb18030"}:reject("SAMPLE","样例不存在")
+    if options.get("sample","dirty") not in {"dirty","clean","gb18030","conflict"}:reject("SAMPLE","样例不存在")
     if "text" in options and not isinstance(options["text"],str):reject("CONTENT","文件内容须为文本")
     if not isinstance(options.get("params",{}),dict):reject("PARAMETER","参数须为对象")
     if options.get("params"):reject("PARAMETER","该项目无可调计算参数")
@@ -14,4 +14,8 @@ def csv_evidence(result):
     for row in result.get("quarantine",[]):writer.writerow([rid,"隔离",row.get("line"),row.get("code"),json.dumps(row.get("raw",{}),ensure_ascii=False)])
     for row in result.get("invalid",[]):writer.writerow([rid,"无效",row.get("line"),row.get("code"),json.dumps(row,ensure_ascii=False)])
     for row in result.get("results",[]):writer.writerow([rid,"结论",row.get("line",""),row.get("status",""),json.dumps(row,ensure_ascii=False)])
+    for decision in result.get("adjudications",[]):
+        writer.writerow([rid,"裁决",decision.get("adopted_line"),"ADOPT_BASIS",json.dumps({"event_id":decision["event_id"],"adopted":decision["adopted"],"basis":decision["basis"]},ensure_ascii=False)])
+        for version in decision["versions"]:
+            writer.writerow([rid,"裁决版本",version.get("line"),"ADOPTED" if version.get("adopted") else "NOT_ADOPTED",json.dumps(version.get("raw",{}),ensure_ascii=False)])
     return "\ufeff"+buffer.getvalue()

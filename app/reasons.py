@@ -1,1 +1,2 @@
-REASONS={"COLUMN_COUNT":"列数不符","REPEATED_HEADER":"重复表头","MISSING":"必要值缺失","TIME":"时间无效","DUPLICATE":"重复回调","CONFLICT":"曝光ID冲突","CONTRACT":"资费无效","BOT":"机器流量","CAP":"频次上限","REFERENCE":"冲销引用无效","OVER_REVERSE":"重复冲销","CHANNEL":"跨渠道冲销","REVERSE_TIME":"冲销早于曝光"}
+REASONS={"COLUMN_COUNT":"列数不符","REPEATED_HEADER":"重复表头","MISSING":"必要值缺失","TIME":"时间无效","DUPLICATE":"重复回调","CONFLICT":"曝光ID冲突","CONFLICT_VERSION":"冲突未采信版本","CONFLICT_BOT":"冲突机器版本","CONTRACT":"资费无效","BOT":"机器流量","CAP":"频次上限","REFERENCE":"冲销引用无效","OVER_REVERSE":"重复冲销","CHANNEL":"跨渠道冲销","REVERSE_TIME":"冲销早于曝光"}
+BASIS_LABELS={"BOT_EXCLUDED":"机器流量优先排除","EARLIEST_EVENT_TIME":"非机器回执取最早事件时间","LINE_ORDER_TIE_BREAK":"事件时间相同按来源行兜底","ALL_BOT":"回执全部为机器流量，账单零采信"}

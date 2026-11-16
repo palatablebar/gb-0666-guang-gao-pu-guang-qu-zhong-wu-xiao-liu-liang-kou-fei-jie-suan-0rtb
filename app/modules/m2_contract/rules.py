@@ -4,6 +4,13 @@ from decimal import Decimal,InvalidOperation
 from app.config import SENTINELS
 from app.errors import reject
 
+# 冲突裁决依据：机器流量永不入账单；非机器回执按事件时间最早采信，
+# 事件时间相同再以物理来源行兜底，保证同批输入的裁决结果确定、可复算。
+BASIS_BOT="BOT_EXCLUDED"
+BASIS_EARLIEST="EARLIEST_EVENT_TIME"
+BASIS_LINE="LINE_ORDER_TIE_BREAK"
+BASIS_ALL_BOT="ALL_BOT"
+
 def amount(text):
     value=unicodedata.normalize("NFKC",str(text)).strip().replace(",","")
     if value in SENTINELS:reject("MISSING","资费缺失")
@@ -33,11 +40,50 @@ def normalize(row,policy):
     utc=at.astimezone(timezone.utc);day=utc.astimezone(timezone(timedelta(hours=8))).date().isoformat()
     return {**row,"source":{k:v for k,v in row.items() if k!="line"},"at":utc.isoformat(),"day":day,"cpm":str(amount(policy["channels"][row["channel"]]["cpm"]))}
 
-def deduplicate(rows):
-    groups={};good=[];bad=[]
+def _fingerprint(row):
+    return json.dumps({k:v for k,v in row.items() if k!="line"},sort_keys=True,ensure_ascii=False)
+
+def adjudicate(rows):
+    """按曝光ID分组裁决。返回(采信行, 隔离记录, 冲突裁决台账)。
+
+    完全相同的回执去重；字段冲突时按 机器标记→事件时间→来源行 的确定性
+    优先级选出唯一采信版本，未采信版本完整保留进隔离，裁决过程全部留痕。
+    """
+    groups={}
     for row in rows:groups.setdefault(row["event_id"],[]).append(row)
-    for items in groups.values():
-        unique={json.dumps({k:v for k,v in x.items() if k!="line"},sort_keys=True) for x in items}
-        if len(unique)>1:bad.extend({"line":x["line"],"code":"CONFLICT","raw":x} for x in items)
-        else:good.append(items[0]);bad.extend({"line":x["line"],"code":"DUPLICATE","raw":x} for x in items[1:])
+    good=[];bad=[];decisions=[]
+    for event_id,items in groups.items():
+        unique={_fingerprint(x) for x in items}
+        if len(unique)==1:
+            chosen=min(items,key=lambda x:x["line"]);good.append(chosen)
+            bad.extend({"line":x["line"],"code":"DUPLICATE","raw":x} for x in items if x["line"]!=chosen["line"])
+            continue
+        humans=[x for x in items if x["bot"]!="1"];machines=[x for x in items if x["bot"]=="1"]
+        basis=[BASIS_BOT] if machines else []
+        if humans:
+            earliest_at=min(x["at"] for x in humans)
+            same_time=sorted((x for x in humans if x["at"]==earliest_at),key=lambda x:x["line"])
+            chosen=same_time[0]
+            basis.append(BASIS_LINE if len(same_time)>1 else BASIS_EARLIEST)
+            good.append(chosen)
+        else:
+            chosen=None;basis=[BASIS_ALL_BOT]
+        versions=[]
+        for x in sorted(items,key=lambda r:(r["at"],r["line"])):
+            versions.append({"line":x["line"],"adopted":chosen is not None and x["line"]==chosen["line"],
+                             "bot":x["bot"],"at":x["at"],"channel":x["channel"],"user_id":x["user_id"],
+                             "kind":x["kind"],"ref":x["ref"],"raw":x})
+        decisions.append({"event_id":event_id,"adopted":chosen is not None,
+                          "adopted_line":chosen["line"] if chosen else None,"basis":basis,"versions":versions})
+        for x in items:
+            if chosen is not None and x["line"]==chosen["line"]:continue
+            code="CONFLICT_BOT" if x["bot"]=="1" else "CONFLICT_VERSION"
+            bad.append({"line":x["line"],"code":code,"raw":x,"event_id":event_id,
+                        "adopted_line":chosen["line"] if chosen else None})
+    good.sort(key=lambda x:x["line"]);bad.sort(key=lambda x:x["line"]);decisions.sort(key=lambda d:d["event_id"])
+    return good,bad,decisions
+
+def deduplicate(rows):
+    """兼容旧调用名：仅返回(采信行, 隔离记录)。"""
+    good,bad,_=adjudicate(rows)
     return good,bad

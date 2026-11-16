@@ -27,6 +27,7 @@
 | TRAP-10 | 单曝光舍入导致总额错误 | 静默误算或覆盖证据 | 渠道日聚合后舍入 | `app/modules/m4_calculate/rules.py` | `tests/test_calculate.py::test_aggregate_before_round` |
 | TRAP-11 | 时区混用 | 静默误算或覆盖证据 | UTC存储北京时间账日 | `app/modules/m2_contract/rules.py` | `tests/test_contract.py::test_utc` |
 | TRAP-14 | 重复回调和键冲突 | 静默误算或覆盖证据 | 全字段比较，相同去重冲突隔离 | `app/modules/m2_contract/rules.py` | `tests/test_contract.py::test_duplicate` |
+| TRAP-27 | 月结当天仅部分回执到达且同ID多份冲突 | 整组隔离致已确认曝光漏结，或按先到回执把机器流量带入账单 | 机器优先排除→最早事件时间→来源行兜底的确定性裁决，未采信版本全量留痕 | `app/modules/m2_contract/rules.py` | `tests/test_adjudication.py` |
 | TRAP-19 | 机器人和频次规则同时命中 | 静默误算或覆盖证据 | 机器人优先且不消耗频次 | `app/modules/m3_model/rules.py` | `tests/test_model.py::test_priority` |
 | TRAP-26 | 陈旧复核覆盖新版本 | 静默误算或覆盖证据 | revision条件更新 | `app/modules/m7_batches/rules.py` | `tests/test_batches.py::test_stale` |
 
